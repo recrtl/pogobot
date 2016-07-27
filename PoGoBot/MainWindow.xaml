@@ -6,24 +6,49 @@
         xmlns:local="clr-namespace:PoGoBot"
         mc:Ignorable="d"
         DataContext="{x:Static local:Bot.Instance}"
-        Title="MainWindow" Height="350" Width="525">
+        Title="PoGoBot" Height="350" Width="525">
   <Grid>
     <TabControl>
 
       <TabItem Header="Settings">
         <StackPanel>
-          <UniformGrid Columns="2">
-            <UniformGrid.Resources>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <Grid.Resources>
               <Style TargetType="TextBlock">
                 <Setter Property="HorizontalAlignment" Value="Right" />
               </Style>
-            </UniformGrid.Resources>
-            
-            <TextBlock Text="Username" />
-            <TextBox Text="{Binding Username}" />
-            <TextBlock Text="Password" />
-            <TextBox Text="{Binding Password}" />
-          </UniformGrid>
+            </Grid.Resources>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Proxy" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="ProxyUrl" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProxyUrl}" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="ProxyUsername" />
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ProxyUsername}" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="ProxyPassword" />
+            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ProxyPassword}" />
+
+            <TextBlock  Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Text="Pokemon go login" />
+
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Username" />
+            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Username}" />
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Password" />
+            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Password}" />
+          </Grid>
 
           <Button Content="Connect"
                   Command="{Binding ConnectCommand}" />
@@ -62,7 +87,17 @@
       </TabItem>
 
       <TabItem Header="Pokestops">
-
+        <ListView ItemsSource="{Binding Pokestops}">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="Type" DisplayMemberBinding="{Binding Data.Type}" />
+              <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" />
+              <GridViewColumn Header="Distance" DisplayMemberBinding="{Binding PlayerDistance}" />
+              <GridViewColumn Header="Last spin" DisplayMemberBinding="{Binding LastSpin}" />
+              <GridViewColumn Header="Id" DisplayMemberBinding="{Binding Data.Id}" />
+            </GridView>
+          </ListView.View>
+        </ListView>
       </TabItem>
 
     </TabControl>
