@@ -119,18 +119,35 @@ namespace PoGoBot
 
             var settings = new ConnectionSettings()
             {
-                AuthType = PokemonGo.RocketAPI.Enums.AuthType.Ptc,
-                PtcUsername = this.Username,
-                PtcPassword = this.Password,
                 DefaultLatitude = 48.822262,
                 DefaultLongitude = 2.339810,
                 DefaultAltitude = 35,
             };
 
+            if (string.IsNullOrWhiteSpace(this.Username))
+            {
+                settings.AuthType = PokemonGo.RocketAPI.Enums.AuthType.Google;
+                settings.GoogleRefreshToken = string.Empty;
+            }
+            else
+            {
+                settings.AuthType = PokemonGo.RocketAPI.Enums.AuthType.Ptc;
+                settings.PtcUsername = this.Username;
+                settings.PtcPassword = this.Password;
+            }
+
             _client = new Client(settings);
             try
             {
-                await _client.Login.DoPtcLogin();
+                switch (settings.AuthType)
+                {
+                    case PokemonGo.RocketAPI.Enums.AuthType.Google:
+                        await _client.Login.DoGoogleLogin();
+                        break;
+                    case PokemonGo.RocketAPI.Enums.AuthType.Ptc:
+                        await _client.Login.DoPtcLogin();
+                        break;
+                }
             }
             catch (Exception e)
             {
@@ -171,8 +188,10 @@ namespace PoGoBot
 
                     var details = await _client.Fort.GetFort(data.Id, data.Latitude, data.Longitude);
                     pokestop.Name = details.Name;
+                    await Task.Delay(1000);
 
                     var result = await _client.Fort.SearchFort(data.Id, data.Latitude, data.Longitude);
+                    await Task.Delay(1000);
 
                     switch (result.Result)
                     {
@@ -182,7 +201,7 @@ namespace PoGoBot
                             break;
 
                         case FortSearchResponse.Types.Result.OutOfRange:
-                        Debug.WriteLine($"{pokestop.PlayerDistance}m is too far for pokestops");
+                            Debug.WriteLine($"{pokestop.PlayerDistance}m is too far for pokestops");
                             break;
 
                         case FortSearchResponse.Types.Result.NoResultSet:
