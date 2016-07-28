@@ -38,5 +38,8 @@
     <Setting Name="Altitude" Type="System.Double" Scope="User">
       <Value Profile="(Default)">35</Value>
     </Setting>
+    <Setting Name="TargetCountsJson" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
   </Settings>
 </SettingsFile>

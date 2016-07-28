@@ -7,6 +7,12 @@
         mc:Ignorable="d"
         DataContext="{x:Static local:Bot.Instance}"
         Title="PoGoBot" Height="350" Width="525">
+  <Window.Resources>
+    <Style TargetType="ListViewItem">
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+  </Window.Resources>
+  
   <Grid>
     <TabControl>
 

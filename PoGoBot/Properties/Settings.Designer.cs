@@ -166,5 +166,17 @@ namespace PoGoBot.Properties {
                 this["Altitude"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string TargetCountsJson {
+            get {
+                return ((string)(this["TargetCountsJson"]));
+            }
+            set {
+                this["TargetCountsJson"] = value;
+            }
+        }
     }
 }

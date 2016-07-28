@@ -56,70 +56,64 @@ namespace PoGoBot
 
             this.ConnectCommand = new RelayCommand(ConnectCommand_Execute, ConnectCommand_CanExecute);
 
-            foreach (var itemType in Enum.GetValues(typeof(ItemId)).Cast<ItemId>())
-            {
-                var itemName = itemType.ToString();
-                _items.Add(itemName, new Item(itemName));
-            }
-
-            this.Items = new ObservableCollection<Item>(_items.Values);
-
-            var view = CollectionViewSource.GetDefaultView(this.Items);
-            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Item.Name), System.ComponentModel.ListSortDirection.Ascending));
-
-            view = CollectionViewSource.GetDefaultView(this.Pokestops);
-            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokestop.PlayerDistance), System.ComponentModel.ListSortDirection.Ascending));
+            InitItemsCollections();
+            InitCollectionSorts();
         }
 
         public static Bot Instance { get; } = new Bot();
 
         #region props
 
+        private Properties.Settings Settings
+        {
+            get { return Properties.Settings.Default; }
+        }
+
         public string Username
         {
-            get { return Properties.Settings.Default.Username; }
+            get { return this.Settings.Username; }
             set { this.ChangeSetting(value); }
         }
 
         public string Password
         {
-            get { return Properties.Settings.Default.Password; }
+            get { return this.Settings.Password; }
             set { this.ChangeSetting(value); }
         }
 
         public string ProxyUsername
         {
-            get { return Properties.Settings.Default.ProxyUsername; }
+            get { return this.Settings.ProxyUsername; }
             set { this.ChangeSetting(value); }
         }
 
         public string ProxyPassword
         {
-            get { return Properties.Settings.Default.ProxyPassword; }
+            get { return this.Settings.ProxyPassword; }
             set { this.ChangeSetting(value); }
         }
 
         public string ProxyUrl
         {
-            get { return Properties.Settings.Default.ProxyUrl; }
+            get { return this.Settings.ProxyUrl; }
             set { this.ChangeSetting(value); }
         }
 
         public double Latitude
         {
-            get { return Properties.Settings.Default.Latitude; }
+            get { return this.Settings.Latitude; }
             set { this.ChangeSetting(value); }
         }
 
         public double Longitude
         {
-            get { return Properties.Settings.Default.Longitude; }
+            get { return this.Settings.Longitude; }
             set { this.ChangeSetting(value); }
         }
 
         public double Altitude
         {
-            get { return Properties.Settings.Default.Altitude; }
+            get { return this.Settings.Altitude; }
             set { this.ChangeSetting(value); }
         }
 
@@ -169,7 +163,7 @@ namespace PoGoBot
             if (string.IsNullOrWhiteSpace(this.Username))
             {
                 settings.AuthType = PokemonGo.RocketAPI.Enums.AuthType.Google;
-                settings.GoogleRefreshToken = Properties.Settings.Default.GoogleRefreshToken ?? string.Empty;
+                settings.GoogleRefreshToken = this.Settings.GoogleRefreshToken ?? string.Empty;
             }
             else
             {
@@ -199,8 +193,8 @@ namespace PoGoBot
 
                         await _client.Login.DoGoogleLogin();
 
-                        Properties.Settings.Default.GoogleRefreshToken = settings.GoogleRefreshToken;
-                        Properties.Settings.Default.Save();
+                        this.Settings.GoogleRefreshToken = settings.GoogleRefreshToken;
+                        this.Settings.Save();
                         break;
                     case PokemonGo.RocketAPI.Enums.AuthType.Ptc:
                         await _client.Login.DoPtcLogin();
@@ -355,6 +349,27 @@ namespace PoGoBot
                     this.Player.PreviousLevelXP = data.PlayerStats.PrevLevelXp;
                 }
             }
+
+            DispatcherHelper.CheckBeginInvokeOnUI(() => CollectionViewSource.GetDefaultView(this.Items).Refresh());
+
+            await this.DeleteUneededItems();
+        }
+
+        private async Task DeleteUneededItems()
+        {
+            foreach(var item in this.Items)
+            {
+                if (item.Count <= item.TargetCount)
+                    continue;
+
+                ItemId id;
+                if (!Enum.TryParse<ItemId>(item.Name, out id))
+                    continue;
+
+                await Task.Delay(1000);
+                await TryGet(() => _client.Inventory.RecycleItem(id, item.Count - item.TargetCount));
+                _needInventoryUpdate = true;
+            }
         }
 
         #endregion
@@ -383,14 +398,65 @@ namespace PoGoBot
 
         private void ChangeSetting(object value, [CallerMemberName] string settingName = null, [CallerMemberName] string propertyName = null)
         {
-            Properties.Settings.Default.GetType()
+            this.Settings.GetType()
                 .GetProperty(settingName)
-                .SetValue(Properties.Settings.Default, value);
+                .SetValue(this.Settings, value);
 
             this.RaisePropertyChanged(propertyName);
-            Properties.Settings.Default.Save();
+            this.Settings.Save();
         }
 
         #endregion
+
+        private void InitItemsCollections()
+        {
+            var targetCounts = new Dictionary<string, int>();
+            if (!string.IsNullOrWhiteSpace(this.Settings.TargetCountsJson))
+            {
+                try { targetCounts = JsonConvert.DeserializeObject<Dictionary<string, int>>(this.Settings.TargetCountsJson); }
+                catch { }
+            }
+
+            foreach (var itemType in Enum.GetValues(typeof(ItemId)).Cast<ItemId>())
+            {
+                var itemName = itemType.ToString();
+
+                var item = new Item(itemName);
+                item.PropertyChanged += Item_PropertyChanged;
+                _items.Add(itemName, item);
+                this.Items.Add(item);
+
+                if (targetCounts.ContainsKey(itemName))
+                    item.TargetCount = targetCounts[itemName];
+            }
+        }
+
+        private void Item_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            switch (e.PropertyName)
+            {
+                case nameof(Item.TargetCount):
+                    this.UpdateTargetCounts();
+                    break;
+            }
+        }
+
+        private void UpdateTargetCounts()
+        {
+            var targetCounts = this.Items.ToDictionary(
+                x => x.Name,
+                x => x.TargetCount);
+            this.Settings.TargetCountsJson = JsonConvert.SerializeObject(targetCounts);
+            this.Settings.Save();
+        }
+
+        private void InitCollectionSorts()
+        {
+            var view = CollectionViewSource.GetDefaultView(this.Items);
+            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Item.Count), System.ComponentModel.ListSortDirection.Descending));
+
+            view = CollectionViewSource.GetDefaultView(this.Pokestops);
+            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokestop.PlayerDistance), System.ComponentModel.ListSortDirection.Ascending));
+        }
     }
 }
