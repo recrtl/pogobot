@@ -9,7 +9,7 @@ namespace PoGoBot
 {
     class Item : ViewModelBase
     {
-        public Item(string name )
+        public Item(string name)
         {
             this.Name = name;
         }

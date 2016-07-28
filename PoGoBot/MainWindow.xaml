@@ -25,6 +25,11 @@
               <RowDefinition />
               <RowDefinition />
               <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
             </Grid.RowDefinitions>
 
             <Grid.Resources>
@@ -42,16 +47,35 @@
             <TextBlock Grid.Row="3" Grid.Column="0" Text="ProxyPassword" />
             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ProxyPassword}" />
 
-            <TextBlock  Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Text="Pokemon go login (only for pokemon accounts)" />
+            <TextBlock  Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
+                        Text="Pokemon go login (only for pokemon accounts, leave blank for google accounts)"
+                        TextWrapping="Wrap"/>
 
             <TextBlock Grid.Row="5" Grid.Column="0" Text="Username" />
             <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Username}" />
             <TextBlock Grid.Row="6" Grid.Column="0" Text="Password" />
             <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Password}" />
+
+            <TextBlock  Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Text="Pokemon go login (only for pokemon accounts)" />
+
+            <TextBlock Grid.Row="8" Grid.Column="0" Text="Latitude" />
+            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Latitude}" />
+            <TextBlock Grid.Row="9" Grid.Column="0" Text="Longitude" />
+            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Longitude}" />
+            <TextBlock Grid.Row="10" Grid.Column="0" Text="Altitude" />
+            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding Altitude}" />
           </Grid>
 
           <Button Content="Connect"
                   Command="{Binding ConnectCommand}" />
+        </StackPanel>
+      </TabItem>
+
+      <TabItem Header="Player">
+        <StackPanel>
+          <TextBlock Text="{Binding Player.Name}" />
+          <TextBlock Text="{Binding Player.Level}" />
+          <ProgressBar Value="{Binding Player.XP}" Maximum="{Binding Player.NextLevelXP}" Minimum="{Binding Player.PreviousLevelXP}" />
         </StackPanel>
       </TabItem>
 
@@ -61,7 +85,13 @@
             <GridView>
               <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" />
               <GridViewColumn Header="Count" DisplayMemberBinding="{Binding Count}" />
-              <GridViewColumn Header="TargetCount" DisplayMemberBinding="{Binding TargetCount}" />
+              <GridViewColumn Header="TargetCount">
+                <GridViewColumn.CellTemplate>
+                  <DataTemplate>
+                    <TextBox Text="{Binding TargetCount}" />
+                  </DataTemplate>
+                </GridViewColumn.CellTemplate>
+              </GridViewColumn>
             </GridView>
           </ListView.View>
         </ListView>
