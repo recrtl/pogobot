@@ -55,6 +55,8 @@ namespace PoGoBot
             }
 
             this.ConnectCommand = new RelayCommand(ConnectCommand_Execute, ConnectCommand_CanExecute);
+            this.TransferCommand = new RelayCommand(TransferCommand_Execute, TransferCommand_CanExecute);
+            this.EvolveCommand = new RelayCommand(EvolveCommand_Execute, EvolveCommand_CanExecute);
 
             InitItemsCollections();
             InitCollectionSorts();
@@ -133,6 +135,28 @@ namespace PoGoBot
         public ObservableCollection<Pokemon> Pokemons { get; } = new ObservableCollection<Pokemon>();
         public ObservableCollection<Pokestop> Pokestops { get; } = new ObservableCollection<Pokestop>();
         public Player Player { get; } = new Player();
+
+        private bool _needTransfer = false;
+        private bool NeedTransfer
+        {
+            get { return _needTransfer; }
+            set
+            {
+                _needTransfer = value;
+                DispatcherHelper.CheckBeginInvokeOnUI(() => this.TransferCommand.RaiseCanExecuteChanged());
+            }
+        }
+
+        private bool _needEvolve = false;
+        private bool NeedEvolve
+        {
+            get { return _needEvolve; }
+            set
+            {
+                _needEvolve = value;
+                DispatcherHelper.CheckBeginInvokeOnUI(() => this.EvolveCommand.RaiseCanExecuteChanged());
+            }
+        }
 
         #endregion
 
@@ -214,6 +238,46 @@ namespace PoGoBot
 
         #endregion
 
+        #region Transfer & Evolve commands
+
+        public RelayCommand TransferCommand { get; }
+
+        private bool TransferCommand_CanExecute()
+        {
+            return !this.NeedTransfer;
+        }
+
+        private void TransferCommand_Execute()
+        {
+            var selectedPokemons = this.Pokemons.Where(x => x.MarkedForTransfer).ToArray();
+            var message = $"You are about to transfer {selectedPokemons.Length} pokemons:{Environment.NewLine}";
+            message += string.Join(Environment.NewLine, selectedPokemons.Select(x => $"{x.Name} - {x.CP}CP"));
+            if (MessageBox.Show(message, "Transfer confirmation", MessageBoxButton.OKCancel) == MessageBoxResult.OK)
+            {
+                this.NeedTransfer = true;
+            }
+        }
+
+        public RelayCommand EvolveCommand { get; }
+
+        private bool EvolveCommand_CanExecute()
+        {
+            return !this.NeedEvolve;
+        }
+
+        private void EvolveCommand_Execute()
+        {
+            var selectedPokemons = this.Pokemons.Where(x => x.MarkedForTransfer).ToArray();
+            var message = $"You are about to evolve {selectedPokemons.Length} pokemons:{Environment.NewLine}";
+            message += string.Join(Environment.NewLine, selectedPokemons.Select(x => $"{x.Name} - {x.CP}CP"));
+            if (MessageBox.Show(message, "Evolve confirmation", MessageBoxButton.OKCancel) == MessageBoxResult.OK)
+            {
+                this.NeedEvolve = true;
+            }
+        }
+
+        #endregion
+
         #region Loop
 
         private async Task Loop()
@@ -226,6 +290,7 @@ namespace PoGoBot
             while (_client != null)
             {
                 await this.Update();
+                this.RefreshCollectionViews();
                 await Task.Delay(10000);
             }
         }
@@ -238,49 +303,12 @@ namespace PoGoBot
             if (_needMapUpdate)
                 await UpdateMap();
 
-            foreach (var pokestop in this._pokestops.Values)
-            {
-                var data = pokestop.Data;
-                pokestop.PlayerDistance = this.GetDistanceToPlayer(data.Latitude, data.Longitude); // we do it every time but not very costly
-                if (pokestop.PlayerDistance > 50)
-                    continue;
+            if (NeedTransfer)
+                await this.TransferPokemons();
+            if (NeedEvolve)
+                await this.EvolvePokemons();
 
-                if (pokestop.Data.Type == FortType.Checkpoint)
-                {
-                    if (DateTime.Now - pokestop.LastSpin < TimeSpan.FromMinutes(5))
-                        continue;
-
-                    var details = await TryGet(() => _client.Fort.GetFort(data.Id, data.Latitude, data.Longitude));
-                    if (details == null)
-                        continue;
-
-                    pokestop.Name = details.Name;
-                    await Task.Delay(1000);
-
-                    var search = await TryGet(() => _client.Fort.SearchFort(data.Id, data.Latitude, data.Longitude));
-                    if (search == null)
-                        continue;
-
-                    await Task.Delay(1000);
-
-                    switch (search.Result)
-                    {
-                        case FortSearchResponse.Types.Result.Success:
-                        case FortSearchResponse.Types.Result.InCooldownPeriod:
-                        case FortSearchResponse.Types.Result.InventoryFull:
-                            pokestop.LastSpin = DateTime.Now;
-                            _needInventoryUpdate = true;
-                            break;
-
-                        case FortSearchResponse.Types.Result.OutOfRange:
-                            Debug.WriteLine($"{pokestop.PlayerDistance}m is too far for pokestops");
-                            break;
-
-                        case FortSearchResponse.Types.Result.NoResultSet:
-                            break;
-                    }
-                }
-            }
+            await this.SpinPokestops();
 
             DispatcherHelper.CheckBeginInvokeOnUI(() =>
             {
@@ -350,14 +378,12 @@ namespace PoGoBot
                 }
             }
 
-            DispatcherHelper.CheckBeginInvokeOnUI(() => CollectionViewSource.GetDefaultView(this.Items).Refresh());
-
             await this.DeleteUneededItems();
         }
 
         private async Task DeleteUneededItems()
         {
-            foreach(var item in this.Items)
+            foreach (var item in this.Items)
             {
                 if (item.Count <= item.TargetCount)
                     continue;
@@ -370,6 +396,109 @@ namespace PoGoBot
                 await TryGet(() => _client.Inventory.RecycleItem(id, item.Count - item.TargetCount));
                 _needInventoryUpdate = true;
             }
+        }
+
+        private async Task SpinPokestops()
+        {
+            foreach (var pokestop in this._pokestops.Values)
+            {
+                var data = pokestop.Data;
+                pokestop.PlayerDistance = this.GetDistanceToPlayer(data.Latitude, data.Longitude); // we do it every time but not very costly
+                if (pokestop.PlayerDistance > 50)
+                    continue;
+
+                if (pokestop.Data.Type == FortType.Checkpoint)
+                {
+                    if (DateTime.Now - pokestop.LastSpin < TimeSpan.FromMinutes(5))
+                        continue;
+
+                    var details = await TryGet(() => _client.Fort.GetFort(data.Id, data.Latitude, data.Longitude));
+                    if (details == null)
+                        continue;
+
+                    pokestop.Name = details.Name;
+                    await Task.Delay(500);
+
+                    var search = await TryGet(() => _client.Fort.SearchFort(data.Id, data.Latitude, data.Longitude));
+                    if (search == null)
+                        continue;
+
+                    switch (search.Result)
+                    {
+                        case FortSearchResponse.Types.Result.Success:
+                        case FortSearchResponse.Types.Result.InCooldownPeriod:
+                        case FortSearchResponse.Types.Result.InventoryFull:
+                            pokestop.LastSpin = DateTime.Now;
+                            _needInventoryUpdate = true;
+                            break;
+
+                        case FortSearchResponse.Types.Result.OutOfRange:
+                            Debug.WriteLine($"{pokestop.PlayerDistance}m is too far for pokestops");
+                            break;
+
+                        case FortSearchResponse.Types.Result.NoResultSet:
+                            break;
+                    }
+                    this.RefreshCollectionViews();
+
+                    await Task.Delay(500);
+                }
+            }
+        }
+
+        private async Task TransferPokemons()
+        {
+            foreach (var pokemon in this.Pokemons.Where(x => x.MarkedForTransfer).ToArray())
+            {
+                var response = await TryGet(() => _client.Inventory.TransferPokemon(pokemon.Data.Id));
+                if (response == null)
+                    continue;
+
+                switch (response.Result)
+                {
+                    case ReleasePokemonResponse.Types.Result.Success:
+                        DispatcherHelper.CheckBeginInvokeOnUI(() =>
+                        {
+                            _pokemons.Remove(pokemon.Name);
+                            this.Pokemons.Remove(pokemon);
+                        });
+                        break;
+
+                    case ReleasePokemonResponse.Types.Result.Unset:
+                    case ReleasePokemonResponse.Types.Result.PokemonDeployed:
+                    case ReleasePokemonResponse.Types.Result.Failed:
+                    case ReleasePokemonResponse.Types.Result.ErrorPokemonIsEgg:
+                        break;
+                }
+            }
+
+            NeedTransfer = false;
+        }
+
+        private async Task EvolvePokemons()
+        {
+            foreach (var pokemon in this.Pokemons.Where(x => x.MarkedForEvolution).ToArray())
+            {
+                var response = await TryGet(() => _client.Inventory.EvolvePokemon(pokemon.Data.Id));
+                if (response == null)
+                    continue;
+
+                switch (response.Result)
+                {
+                    case EvolvePokemonResponse.Types.Result.Success:
+                        // todo change data
+                        break;
+
+                    case EvolvePokemonResponse.Types.Result.Unset:
+                    case EvolvePokemonResponse.Types.Result.FailedPokemonMissing:
+                    case EvolvePokemonResponse.Types.Result.FailedInsufficientResources:
+                    case EvolvePokemonResponse.Types.Result.FailedPokemonCannotEvolve:
+                    case EvolvePokemonResponse.Types.Result.FailedPokemonIsDeployed:
+                        break;
+                }
+            }
+
+            NeedEvolve = false;
         }
 
         #endregion
@@ -457,6 +586,20 @@ namespace PoGoBot
 
             view = CollectionViewSource.GetDefaultView(this.Pokestops);
             view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokestop.PlayerDistance), System.ComponentModel.ListSortDirection.Ascending));
+
+            view = CollectionViewSource.GetDefaultView(this.Pokemons);
+            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokemon.Name), System.ComponentModel.ListSortDirection.Ascending));
+            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokemon.CP), System.ComponentModel.ListSortDirection.Descending));
+        }
+
+        private void RefreshCollectionViews()
+        {
+            DispatcherHelper.CheckBeginInvokeOnUI(() =>
+            {
+                CollectionViewSource.GetDefaultView(this.Items).Refresh();
+                CollectionViewSource.GetDefaultView(this.Pokestops).Refresh();
+                CollectionViewSource.GetDefaultView(this.Pokemons).Refresh();
+            });
         }
     }
 }
