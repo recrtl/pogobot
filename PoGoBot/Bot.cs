@@ -147,7 +147,7 @@ namespace PoGoBot
             set
             {
                 this.Set(ref _isConnected, value);
-                this.ConnectCommand.RaiseCanExecuteChanged();
+                DispatcherHelper.CheckBeginInvokeOnUI(() => this.ConnectCommand.RaiseCanExecuteChanged());
             }
         }
 
@@ -238,7 +238,7 @@ namespace PoGoBot
                 MessageBox.Show($"Could not connect to login server:{e.GetBaseException().Message}");
 
                 // if there is an exception the refresh token might stil be good
-                if(e is PokemonGo.RocketAPI.Exceptions.AccessTokenExpiredException)
+                if (e is PokemonGo.RocketAPI.Exceptions.AccessTokenExpiredException)
                 {
                     this.Settings.GoogleRefreshToken = settings.GoogleRefreshToken;
                     this.Settings.Save();
@@ -301,14 +301,25 @@ namespace PoGoBot
             while (player == null)
                 player = await TryGet(() => _client.Player.GetPlayer());
             this.Player.Name = player.PlayerData.Username;
+            this.Player.Data = player.PlayerData;
 
+            var loopStart = DateTime.Now;
             while (_client != null)
             {
                 await this.Update();
-                if(_needRefreshView)
+                if (_needRefreshView)
                     this.RefreshCollectionViews();
                 await Task.Delay(500);
+
+                // reconnect every 20 minutes
+                if ((DateTime.Now - loopStart).TotalMinutes > 20)
+                {
+                    _client = null;
+                    this.IsConnected = false;
+                }
             }
+
+            this.ConnectCommand.Execute(null);
         }
 
         private async Task Update()
@@ -403,9 +414,9 @@ namespace PoGoBot
                 if (data.PlayerStats != null)
                 {
                     this.Player.Level = data.PlayerStats.Level;
-                    this.Player.XP = data.PlayerStats.Experience;
-                    this.Player.NextLevelXP = data.PlayerStats.NextLevelXp;
-                    this.Player.PreviousLevelXP = data.PlayerStats.PrevLevelXp;
+                    this.Player.XP = data.PlayerStats.Experience - data.PlayerStats.PrevLevelXp - GetXpDiff(data.PlayerStats.Level);
+                    this.Player.NextLevelXP = data.PlayerStats.NextLevelXp - data.PlayerStats.PrevLevelXp - GetXpDiff(data.PlayerStats.Level);
+                    this.Player.PreviousLevelXP = 0;
                 }
 
                 if (data.Candy != null)
@@ -421,8 +432,10 @@ namespace PoGoBot
                 }
             }
 
+            this.Player.InventoryCount = this.Items.Sum(x => x.Count);
+
             var pokemonsToRemove = _pokemons.Values.Where(x => !pokemonIds.Contains(x.Id)).ToArray();
-            foreach(var pokemon in pokemonsToRemove)
+            foreach (var pokemon in pokemonsToRemove)
             {
                 _pokemons.Remove(pokemon.Id);
                 DispatcherHelper.CheckBeginInvokeOnUI(() => this.Pokemons.Remove(pokemon));
@@ -684,6 +697,22 @@ namespace PoGoBot
                 CollectionViewSource.GetDefaultView(this.Pokemons).Refresh();
             });
             _needRefreshView = false;
+        }
+
+        public static int GetXpDiff(int level)
+        {
+            if (level > 0 && level <= 40)
+            {
+                int[] xpTable =
+                {
+                    0, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000,
+                    10000, 10000, 10000, 10000, 15000, 20000, 20000, 20000, 25000, 25000,
+                    50000, 75000, 100000, 125000, 150000, 190000, 200000, 250000, 300000, 350000,
+                    500000, 500000, 750000, 1000000, 1250000, 1500000, 2000000, 2500000, 1000000, 1000000
+                };
+                return xpTable[level - 1];
+            }
+            return 0;
         }
     }
 }

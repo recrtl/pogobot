@@ -91,11 +91,24 @@
         <StackPanel>
           <TextBlock Text="{Binding Player.Name}" />
           <TextBlock Text="{Binding Player.Level}" />
+
+          <TextBlock Text="{Binding Player.XP, StringFormat='XP: {0}'}" />
+          <TextBlock Text="{Binding Player.PreviousLevelXP, StringFormat='Previous Level XP: {0}'}" />
+          <TextBlock Text="{Binding Player.NextLevelXP, StringFormat='Next Level XP: {0}'}" />
           <ProgressBar Value="{Binding Player.XP}" Maximum="{Binding Player.NextLevelXP}" Minimum="{Binding Player.PreviousLevelXP}" />
         </StackPanel>
       </TabItem>
 
-      <TabItem Header="Inventory">
+      <TabItem>
+        <TabItem.Header>
+          <TextBlock>
+            <Run Text="Inventory " />
+            <Run Text="{Binding Player.InventoryCount}" />
+            <Run Text="/" />
+            <Run Text="{Binding Player.Data.MaxItemStorage}" />
+          </TextBlock>
+        </TabItem.Header>
+        
         <ListView ItemsSource="{Binding Items}">
           <ListView.View>
             <GridView>

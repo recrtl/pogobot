@@ -1,4 +1,5 @@
 ﻿using GalaSoft.MvvmLight;
+using POGOProtos.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,6 +19,13 @@ namespace PoGoBot
         {
             get { return _name; }
             set { this.Set(ref _name, value); }
+        }
+
+        private PlayerData _data;
+        public PlayerData Data
+        {
+            get { return _data; }
+            set { this.Set(ref _data, value); }
         }
 
         private int _level;
@@ -46,6 +54,13 @@ namespace PoGoBot
         {
             get { return _previousLevelXP; }
             set { this.Set(ref _previousLevelXP, value); }
+        }
+
+        private int _inventoryCount;
+        public int InventoryCount
+        {
+            get { return _inventoryCount; }
+            set { this.Set(ref _inventoryCount, value); }
         }
     }
 }
