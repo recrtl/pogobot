@@ -26,24 +26,24 @@ namespace PoGoBot.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string Username {
+        public string PtcUsername {
             get {
-                return ((string)(this["Username"]));
+                return ((string)(this["PtcUsername"]));
             }
             set {
-                this["Username"] = value;
+                this["PtcUsername"] = value;
             }
         }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
-        public string Password {
+        public string PtcPassword {
             get {
-                return ((string)(this["Password"]));
+                return ((string)(this["PtcPassword"]));
             }
             set {
-                this["Password"] = value;
+                this["PtcPassword"] = value;
             }
         }
         
@@ -176,6 +176,30 @@ namespace PoGoBot.Properties {
             }
             set {
                 this["TargetCountsJson"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string GoogleUsername {
+            get {
+                return ((string)(this["GoogleUsername"]));
+            }
+            set {
+                this["GoogleUsername"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string GooglePassword {
+            get {
+                return ((string)(this["GooglePassword"]));
+            }
+            set {
+                this["GooglePassword"] = value;
             }
         }
     }

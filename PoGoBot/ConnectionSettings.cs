@@ -15,6 +15,8 @@ namespace PoGoBot
         public double DefaultLatitude { get; set; }
         public double DefaultLongitude { get; set; }
         public string GoogleRefreshToken { get; set; }
+        public string GooglePassword { get; set; }
+        public string GoogleUsername { get; set; }
         public string PtcPassword { get; set; }
         public string PtcUsername { get; set; }
     }

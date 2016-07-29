@@ -36,6 +36,11 @@
               <RowDefinition />
               <RowDefinition />
               <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
+              <RowDefinition />
             </Grid.RowDefinitions>
 
             <Grid.Resources>
@@ -44,7 +49,7 @@
               </Style>
             </Grid.Resources>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Proxy" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Text="Proxy" HorizontalAlignment="Center" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="ProxyUrl" />
             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ProxyUrl}" />
@@ -53,23 +58,28 @@
             <TextBlock Grid.Row="3" Grid.Column="0" Text="ProxyPassword" />
             <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding ProxyPassword}" />
 
-            <TextBlock  Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" 
-                        Text="Pokemon go login (only for pokemon accounts, leave blank for google accounts)"
-                        TextWrapping="Wrap"/>
+            <TextBlock  Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Text="Google login" HorizontalAlignment="Center" />
 
-            <TextBlock Grid.Row="5" Grid.Column="0" Text="Username" />
-            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding Username}" />
-            <TextBlock Grid.Row="6" Grid.Column="0" Text="Password" />
-            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding Password}" />
+            <TextBlock Grid.Row="5" Grid.Column="0" Text="Google Username" />
+            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding GoogleUsername}" />
+            <TextBlock Grid.Row="6" Grid.Column="0" Text="Google Password" />
+            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding GooglePassword}" />
 
-            <TextBlock  Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Text="Pokemon go login (only for pokemon accounts)" />
+            <TextBlock  Grid.Row="7" Grid.Column="0" Grid.ColumnSpan="2" Text="Pokemon go login" TextWrapping="Wrap" HorizontalAlignment="Center" />
 
-            <TextBlock Grid.Row="8" Grid.Column="0" Text="Latitude" />
-            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding Latitude}" />
-            <TextBlock Grid.Row="9" Grid.Column="0" Text="Longitude" />
-            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding Longitude}" />
-            <TextBlock Grid.Row="10" Grid.Column="0" Text="Altitude" />
-            <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding Altitude}" />
+            <TextBlock Grid.Row="8" Grid.Column="0" Text="Ptc Username" />
+            <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding PtcUsername}" />
+            <TextBlock Grid.Row="9" Grid.Column="0" Text="Ptc Password" />
+            <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding PtcPassword}" />
+
+            <TextBlock  Grid.Row="10" Grid.Column="0" Grid.ColumnSpan="2" Text="Pokemon go login (only for pokemon accounts)" />
+
+            <TextBlock Grid.Row="11" Grid.Column="0" Text="Latitude" />
+            <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding Latitude}" />
+            <TextBlock Grid.Row="12" Grid.Column="0" Text="Longitude" />
+            <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding Longitude}" />
+            <TextBlock Grid.Row="13" Grid.Column="0" Text="Altitude" />
+            <TextBox Grid.Row="13" Grid.Column="1" Text="{Binding Altitude}" />
           </Grid>
 
           <Button Content="Connect"
@@ -114,7 +124,21 @@
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
           
-          <ListView ItemsSource="{Binding Pokemons}">
+          <ListView ItemsSource="{Binding Pokemons}"
+                    VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                    VirtualizingPanel.IsVirtualizing="True"
+                    VirtualizingPanel.IsContainerVirtualizable="True"
+                    ScrollViewer.IsDeferredScrollingEnabled="True">
+            <ListView.GroupStyle>
+              <GroupStyle>
+                <GroupStyle.HeaderTemplate>
+                  <DataTemplate>
+                    <TextBlock FontWeight="Bold" Text="{Binding Name}"/>
+                  </DataTemplate>
+                </GroupStyle.HeaderTemplate>
+              </GroupStyle>
+            </ListView.GroupStyle>
+            
             <ListView.View>
               <GridView>
                 <GridViewColumn Header="Pokemon" DisplayMemberBinding="{Binding Data.PokemonId}" />
@@ -146,7 +170,15 @@
       </TabItem>
 
       <TabItem Header="Pokedex">
-
+        <ListView ItemsSource="{Binding Pokedex}">
+          <ListView.View>
+            <GridView>
+              <GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" />
+              <GridViewColumn Header="Times encountered" DisplayMemberBinding="{Binding TimesEncountered}" />
+              <GridViewColumn Header="Times captured" DisplayMemberBinding="{Binding TimesCaptured}" />
+            </GridView>
+          </ListView.View>
+        </ListView>
       </TabItem>
 
       <TabItem Header="Pokestops">

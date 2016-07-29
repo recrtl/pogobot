@@ -3,6 +3,9 @@ using GalaSoft.MvvmLight.Command;
 using GalaSoft.MvvmLight.Threading;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using POGOProtos.Data;
+using POGOProtos.Enums;
+using POGOProtos.Inventory;
 using POGOProtos.Inventory.Item;
 using POGOProtos.Map.Fort;
 using POGOProtos.Networking.Responses;
@@ -30,8 +33,11 @@ namespace PoGoBot
         private Dictionary<string, Pokemon> _pokemons { get; } = new Dictionary<string, Pokemon>();
         private Dictionary<string, Pokestop> _pokestops { get; } = new Dictionary<string, Pokestop>();
         private Dictionary<string, Item> _items { get; } = new Dictionary<string, Item>();
+        private Dictionary<int, Candy> _families { get; } = new Dictionary<int, Candy>();
+        private Dictionary<PokemonId, PokedexItem> _pokedex { get; } = new Dictionary<PokemonId, PokedexItem>();
         private bool _needInventoryUpdate = true;
         private bool _needMapUpdate = true;
+        private bool _needRefreshView = true;
 
         private Bot()
         {
@@ -59,6 +65,8 @@ namespace PoGoBot
             this.EvolveCommand = new RelayCommand(EvolveCommand_Execute, EvolveCommand_CanExecute);
 
             InitItemsCollections();
+            InitPokedex();
+            InitFamilies();
             InitCollectionSorts();
         }
 
@@ -71,15 +79,27 @@ namespace PoGoBot
             get { return Properties.Settings.Default; }
         }
 
-        public string Username
+        public string PtcUsername
         {
-            get { return this.Settings.Username; }
+            get { return this.Settings.PtcUsername; }
             set { this.ChangeSetting(value); }
         }
 
-        public string Password
+        public string PtcPassword
         {
-            get { return this.Settings.Password; }
+            get { return this.Settings.PtcPassword; }
+            set { this.ChangeSetting(value); }
+        }
+
+        public string GoogleUsername
+        {
+            get { return this.Settings.GoogleUsername; }
+            set { this.ChangeSetting(value); }
+        }
+
+        public string GooglePassword
+        {
+            get { return this.Settings.GooglePassword; }
             set { this.ChangeSetting(value); }
         }
 
@@ -134,6 +154,7 @@ namespace PoGoBot
         public ObservableCollection<Item> Items { get; } = new ObservableCollection<Item>();
         public ObservableCollection<Pokemon> Pokemons { get; } = new ObservableCollection<Pokemon>();
         public ObservableCollection<Pokestop> Pokestops { get; } = new ObservableCollection<Pokestop>();
+        public ObservableCollection<PokedexItem> Pokedex { get; } = new ObservableCollection<PokedexItem>();
         public Player Player { get; } = new Player();
 
         private bool _needTransfer = false;
@@ -184,7 +205,7 @@ namespace PoGoBot
                 DefaultAltitude = this.Altitude,
             };
 
-            if (string.IsNullOrWhiteSpace(this.Username))
+            if (!string.IsNullOrWhiteSpace(this.GoogleUsername))
             {
                 settings.AuthType = PokemonGo.RocketAPI.Enums.AuthType.Google;
                 settings.GoogleRefreshToken = this.Settings.GoogleRefreshToken ?? string.Empty;
@@ -192,8 +213,8 @@ namespace PoGoBot
             else
             {
                 settings.AuthType = PokemonGo.RocketAPI.Enums.AuthType.Ptc;
-                settings.PtcUsername = this.Username;
-                settings.PtcPassword = this.Password;
+                settings.PtcUsername = this.PtcUsername;
+                settings.PtcPassword = this.PtcUsername;
             }
 
             _client = new Client(settings);
@@ -202,32 +223,26 @@ namespace PoGoBot
                 switch (settings.AuthType)
                 {
                     case PokemonGo.RocketAPI.Enums.AuthType.Google:
-                        _client.Login.GoogleDeviceCodeEvent += (code, uri) =>
-                        {
-                            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(uri))
-                            {
-                                MessageBox.Show("Could not get a devide code for google account.");
-                                return;
-                            }
-
-                            MessageBox.Show($"A webpage will be opened to log into your google account. This code was copied to your clipboard: {code}. Paste it when asked.");
-                            Clipboard.SetText(code);
-                            Process.Start(uri);
-                        };
-
-                        await _client.Login.DoGoogleLogin();
+                        await _client.Login.DoGoogleLogin(this.GoogleUsername, this.GooglePassword);
 
                         this.Settings.GoogleRefreshToken = settings.GoogleRefreshToken;
                         this.Settings.Save();
                         break;
                     case PokemonGo.RocketAPI.Enums.AuthType.Ptc:
-                        await _client.Login.DoPtcLogin();
+                        await _client.Login.DoPtcLogin(this.PtcUsername, this.PtcPassword);
                         break;
                 }
             }
             catch (Exception e)
             {
                 MessageBox.Show($"Could not connect to login server:{e.GetBaseException().Message}");
+
+                // if there is an exception the refresh token might stil be good
+                if(e is PokemonGo.RocketAPI.Exceptions.AccessTokenExpiredException)
+                {
+                    this.Settings.GoogleRefreshToken = settings.GoogleRefreshToken;
+                    this.Settings.Save();
+                }
                 return;
             }
 
@@ -267,7 +282,7 @@ namespace PoGoBot
 
         private void EvolveCommand_Execute()
         {
-            var selectedPokemons = this.Pokemons.Where(x => x.MarkedForTransfer).ToArray();
+            var selectedPokemons = this.Pokemons.Where(x => x.MarkedForEvolution).ToArray();
             var message = $"You are about to evolve {selectedPokemons.Length} pokemons:{Environment.NewLine}";
             message += string.Join(Environment.NewLine, selectedPokemons.Select(x => $"{x.Name} - {x.CP}CP"));
             if (MessageBox.Show(message, "Evolve confirmation", MessageBoxButton.OKCancel) == MessageBoxResult.OK)
@@ -290,8 +305,9 @@ namespace PoGoBot
             while (_client != null)
             {
                 await this.Update();
-                this.RefreshCollectionViews();
-                await Task.Delay(10000);
+                if(_needRefreshView)
+                    this.RefreshCollectionViews();
+                await Task.Delay(500);
             }
         }
 
@@ -305,6 +321,7 @@ namespace PoGoBot
 
             if (NeedTransfer)
                 await this.TransferPokemons();
+
             if (NeedEvolve)
                 await this.EvolvePokemons();
 
@@ -344,6 +361,7 @@ namespace PoGoBot
                 return;
             _needInventoryUpdate = false;
 
+            var pokemonIds = new HashSet<string>();
             foreach (var item in inventory.InventoryDelta.InventoryItems)
             {
                 var data = item.InventoryItemData;
@@ -357,13 +375,26 @@ namespace PoGoBot
                 if (data.PokemonData != null && !data.PokemonData.IsEgg)
                 {
                     var id = data.PokemonData.Id.ToString();
+                    pokemonIds.Add(id);
                     if (_pokemons.ContainsKey(id))
                     {
-                        _pokemons[id].Data = data.PokemonData;
+                        _pokemons[id].UpdateData(data.PokemonData);
                     }
                     else
                     {
-                        var pokemon = new Pokemon(data.PokemonData);
+                        // find family
+                        Candy family = null;
+                        var familyId = (int)data.PokemonData.PokemonId;
+                        while (family == null && familyId >= 0)
+                        {
+                            if (_families.ContainsKey(familyId))
+                                family = _families[familyId];
+                            else
+                                familyId--;
+                        }
+
+                        // create pokemon
+                        var pokemon = new Pokemon(data.PokemonData, family);
                         _pokemons[id] = pokemon;
                         DispatcherHelper.CheckBeginInvokeOnUI(() => this.Pokemons.Add(pokemon));
                     }
@@ -376,7 +407,28 @@ namespace PoGoBot
                     this.Player.NextLevelXP = data.PlayerStats.NextLevelXp;
                     this.Player.PreviousLevelXP = data.PlayerStats.PrevLevelXp;
                 }
+
+                if (data.Candy != null)
+                {
+                    var entry = _families[(int)data.Candy.FamilyId];
+                    entry.MergeFrom(data.Candy);
+                }
+
+                if (data.PokedexEntry != null)
+                {
+                    var entry = _pokedex[data.PokedexEntry.PokemonId];
+                    entry.UpdateEntry(data.PokedexEntry);
+                }
             }
+
+            var pokemonsToRemove = _pokemons.Values.Where(x => !pokemonIds.Contains(x.Id)).ToArray();
+            foreach(var pokemon in pokemonsToRemove)
+            {
+                _pokemons.Remove(pokemon.Id);
+                DispatcherHelper.CheckBeginInvokeOnUI(() => this.Pokemons.Remove(pokemon));
+            };
+
+            _needRefreshView = true;
 
             await this.DeleteUneededItems();
         }
@@ -461,6 +513,7 @@ namespace PoGoBot
                         {
                             _pokemons.Remove(pokemon.Name);
                             this.Pokemons.Remove(pokemon);
+                            _needInventoryUpdate = true;
                         });
                         break;
 
@@ -486,7 +539,7 @@ namespace PoGoBot
                 switch (response.Result)
                 {
                     case EvolvePokemonResponse.Types.Result.Success:
-                        // todo change data
+                        _needInventoryUpdate = true;
                         break;
 
                     case EvolvePokemonResponse.Types.Result.Unset:
@@ -560,12 +613,37 @@ namespace PoGoBot
             }
         }
 
+        private void InitPokedex()
+        {
+            foreach (var id in Enum.GetValues(typeof(PokemonId)).Cast<PokemonId>())
+            {
+                var entry = new PokedexItem(id);
+                _pokedex.Add(id, entry);
+                this.Pokedex.Add(entry);
+            }
+        }
+
+        private void InitFamilies()
+        {
+            foreach (var id in Enum.GetValues(typeof(PokemonFamilyId)).Cast<PokemonFamilyId>())
+            {
+                var entry = new Candy()
+                {
+                    Candy_ = 0,
+                    FamilyId = id,
+                };
+
+                _families.Add((int)id, entry);
+            }
+        }
+
         private void Item_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             switch (e.PropertyName)
             {
                 case nameof(Item.TargetCount):
                     this.UpdateTargetCounts();
+                    _needInventoryUpdate = true;
                     break;
             }
         }
@@ -587,9 +665,14 @@ namespace PoGoBot
             view = CollectionViewSource.GetDefaultView(this.Pokestops);
             view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokestop.PlayerDistance), System.ComponentModel.ListSortDirection.Ascending));
 
+            view = CollectionViewSource.GetDefaultView(this.Pokedex);
+            view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(PokedexItem.Name), System.ComponentModel.ListSortDirection.Ascending));
+
             view = CollectionViewSource.GetDefaultView(this.Pokemons);
             view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokemon.Name), System.ComponentModel.ListSortDirection.Ascending));
             view.SortDescriptions.Add(new System.ComponentModel.SortDescription(nameof(Pokemon.CP), System.ComponentModel.ListSortDirection.Descending));
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Pokemon.Family)));
+            view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(Pokemon.Name)));
         }
 
         private void RefreshCollectionViews()
@@ -600,6 +683,7 @@ namespace PoGoBot
                 CollectionViewSource.GetDefaultView(this.Pokestops).Refresh();
                 CollectionViewSource.GetDefaultView(this.Pokemons).Refresh();
             });
+            _needRefreshView = false;
         }
     }
 }

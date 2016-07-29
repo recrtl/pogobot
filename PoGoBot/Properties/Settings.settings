@@ -2,10 +2,10 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="PoGoBot.Properties" GeneratedClassName="Settings">
   <Profiles />
   <Settings>
-    <Setting Name="Username" Type="System.String" Scope="User">
+    <Setting Name="PtcUsername" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
-    <Setting Name="Password" Type="System.String" Scope="User">
+    <Setting Name="PtcPassword" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
     <Setting Name="ProxyUsername" Type="System.String" Scope="User">
@@ -39,6 +39,12 @@
       <Value Profile="(Default)">35</Value>
     </Setting>
     <Setting Name="TargetCountsJson" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="GoogleUsername" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="GooglePassword" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
   </Settings>
