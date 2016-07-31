@@ -12,7 +12,7 @@
       <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     </Style>
   </Window.Resources>
-  
+
   <Grid>
     <TabControl>
 
@@ -108,7 +108,7 @@
             <Run Text="{Binding Player.Data.MaxItemStorage}" />
           </TextBlock>
         </TabItem.Header>
-        
+
         <ListView ItemsSource="{Binding Items}">
           <ListView.View>
             <GridView>
@@ -135,14 +135,16 @@
           <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
-          
-          <ListView ItemsSource="{Binding Pokemons}"
+
+          <DataGrid ItemsSource="{Binding Pokemons}" ColumnWidth="Auto"
                     VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                     VirtualizingPanel.IsVirtualizing="True"
                     VirtualizingPanel.IsContainerVirtualizable="True"
-                    ScrollViewer.IsDeferredScrollingEnabled="True">
-            <ListView.GroupStyle>
+                    ScrollViewer.IsDeferredScrollingEnabled="True" 
+                    AutoGenerateColumns="False">
+            <DataGrid.GroupStyle>
               <GroupStyle>
                 <GroupStyle.HeaderTemplate>
                   <DataTemplate>
@@ -150,35 +152,23 @@
                   </DataTemplate>
                 </GroupStyle.HeaderTemplate>
               </GroupStyle>
-            </ListView.GroupStyle>
-            
-            <ListView.View>
-              <GridView>
-                <GridViewColumn Header="Pokemon" DisplayMemberBinding="{Binding Data.PokemonId}" />
-                <GridViewColumn Header="Nickname" DisplayMemberBinding="{Binding Data.Nickname}" />
-                <GridViewColumn Header="CP" DisplayMemberBinding="{Binding Data.Cp}" />
-                <GridViewColumn Header="Transfer">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate>
-                      <CheckBox IsChecked="{Binding MarkedForTransfer}" />
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-                <GridViewColumn Header="Evolve">
-                  <GridViewColumn.CellTemplate>
-                    <DataTemplate>
-                      <CheckBox IsChecked="{Binding MarkedForEvolution}" />
-                    </DataTemplate>
-                  </GridViewColumn.CellTemplate>
-                </GridViewColumn>
-              </GridView>
-            </ListView.View>
-          </ListView>
+            </DataGrid.GroupStyle>
+
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Pokemon" Binding="{Binding Data.PokemonId}" />
+              <DataGridTextColumn Header="Nickname" Binding="{Binding Data.Nickname}" />
+              <DataGridTextColumn Header="CP" Binding="{Binding Data.Cp}" />
+              <DataGridCheckBoxColumn Header="Transfer" Binding="{Binding MarkedForTransfer}" />
+              <DataGridCheckBoxColumn Header="Evolve" Binding="{Binding MarkedForEvolution}" />
+            </DataGrid.Columns>
+          </DataGrid>
 
           <UniformGrid Grid.Row="1" Columns="2">
             <Button Content="Transfer selected" Command="{Binding TransferCommand}" HorizontalAlignment="Center" />
             <Button Content="Evolve selected" Command="{Binding EvolveCommand}" HorizontalAlignment="Center" />
           </UniformGrid>
+          <Button Grid.Row="2" Grid.ColumnSpan="2"
+                  Content="Auto select" Command="{Binding AutoSelectCommand}" HorizontalAlignment="Center" />
         </Grid>
       </TabItem>
 

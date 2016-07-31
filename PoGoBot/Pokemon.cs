@@ -13,7 +13,9 @@ namespace PoGoBot
 {
     class Pokemon : ViewModelBase
     {
-        public static readonly ReadOnlyDictionary<PokemonId, int> _candiesToEvolve = new ReadOnlyDictionary<PokemonId, int>(new Dictionary<PokemonId, int>()
+        #region Static data
+
+        public static readonly ReadOnlyDictionary<PokemonId, int> CandiesToEvolve = new ReadOnlyDictionary<PokemonId, int>(new Dictionary<PokemonId, int>()
         {
             { PokemonId.Bulbasaur, 25},
             { PokemonId.Ivysaur, 100},
@@ -87,7 +89,7 @@ namespace PoGoBot
             { PokemonId.Dragonair, 100},
         });
 
-        public static readonly ReadOnlyDictionary<PokemonId, string> _pokemonNames = new ReadOnlyDictionary<PokemonId, string>(new Dictionary<PokemonId, string>()
+        public static readonly ReadOnlyDictionary<PokemonId, string> PokemonNames = new ReadOnlyDictionary<PokemonId, string>(new Dictionary<PokemonId, string>()
         {
             {PokemonId.Bulbasaur        ,"Bulbizarre"},
             {PokemonId.Ivysaur          ,"Herbizarre"},
@@ -117,10 +119,10 @@ namespace PoGoBot
             {PokemonId.Raichu           ,"Raichu"},
             {PokemonId.Sandshrew        ,"Sabelette"},
             {PokemonId.Sandslash        ,"Sablaireau"},
-            {PokemonId.NidoranFemale         ,"Nidoran♀"},
+            {PokemonId.NidoranFemale    ,"Nidoran♀"},
             {PokemonId.Nidorina         ,"Nidorina"},
             {PokemonId.Nidoqueen        ,"Nidoqueen"},
-            {PokemonId.NidoranMale         ,"Nidoran♂"},
+            {PokemonId.NidoranMale      ,"Nidoran♂"},
             {PokemonId.Nidorino         ,"Nidorino"},
             {PokemonId.Nidoking         ,"Nidoking"},
             {PokemonId.Clefairy         ,"Mélofée"},
@@ -171,7 +173,7 @@ namespace PoGoBot
             {PokemonId.Slowbro          ,"Flagadoss"},
             {PokemonId.Magnemite        ,"Magnéti"},
             {PokemonId.Magneton         ,"Magnéton"},
-            {PokemonId.Farfetchd       ,"Canarticho"},
+            {PokemonId.Farfetchd        ,"Canarticho"},
             {PokemonId.Doduo            ,"Doduo"},
             {PokemonId.Dodrio           ,"Dodrio"},
             {PokemonId.Seel             ,"Otaria"},
@@ -210,7 +212,7 @@ namespace PoGoBot
             {PokemonId.Seaking          ,"Poissoroy"},
             {PokemonId.Staryu           ,"Stari"},
             {PokemonId.Starmie          ,"Staross"},
-            {PokemonId.MrMime         ,"M. Mime"},
+            {PokemonId.MrMime           ,"M. Mime"},
             {PokemonId.Scyther          ,"Insécateur"},
             {PokemonId.Jynx             ,"Lippoutou"},
             {PokemonId.Electabuzz       ,"Élektek"},
@@ -242,11 +244,13 @@ namespace PoGoBot
             {PokemonId.Mew              ,"Mew"},
         });
 
+        #endregion
+
         public Pokemon(PokemonData data, Candy family)
         {
             this.Id = data.Id.ToString();
-            this.UpdateData(data);
-            this.UpdateFamily(family);
+            this.Data = data;
+            this.Family = family;
         }
 
         public string Id { get; }
@@ -269,7 +273,11 @@ namespace PoGoBot
         public PokemonData Data
         {
             get { return _data; }
-            set { this.Set(ref _data, value); }
+            set
+            {
+                this.Set(ref _data, value);
+                this.OnDataChanged();
+            }
         }
 
         private bool _markedForTransfer;
@@ -286,13 +294,6 @@ namespace PoGoBot
             set { this.Set(ref _markedForEvolution, value); }
         }
 
-        private Candy _family;
-        public Candy Family
-        {
-            get { return _family; }
-            set { this.Set(ref _family, value); }
-        }
-
         private int _candiesToUpgrade;
         public int CandiesToUpgrade
         {
@@ -300,16 +301,23 @@ namespace PoGoBot
             set { this.Set(ref _candiesToUpgrade, value); }
         }
 
-        public void UpdateData(PokemonData data)
+        private Candy _family;
+        public Candy Family
         {
-            this.Data = data;
-            this.Name = data.PokemonId.ToString();
-            this.CP = data.Cp;
+            get { return _family; }
+            set { this.Set(ref _family, value); }
         }
 
-        public void UpdateFamily(Candy family)
+        private void OnDataChanged()
         {
-            this.Family = family;
+            var id = this.Data.PokemonId;
+            this.Name = id.ToString();
+            this.CP = this.Data.Cp;
+
+            if (CandiesToEvolve.ContainsKey(id))
+                this.CandiesToUpgrade = CandiesToEvolve[id];
+            else
+                this.CandiesToUpgrade = 0;
         }
     }
 }

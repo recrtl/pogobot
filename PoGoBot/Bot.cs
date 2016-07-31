@@ -63,6 +63,7 @@ namespace PoGoBot
             this.ConnectCommand = new RelayCommand(ConnectCommand_Execute, ConnectCommand_CanExecute);
             this.TransferCommand = new RelayCommand(TransferCommand_Execute, TransferCommand_CanExecute);
             this.EvolveCommand = new RelayCommand(EvolveCommand_Execute, EvolveCommand_CanExecute);
+            this.AutoSelectCommand = new RelayCommand(AutoSelectCommand_Execute, AutoSelectCommand_CanExecute);
 
             InitItemsCollections();
             InitPokedex();
@@ -293,6 +294,56 @@ namespace PoGoBot
 
         #endregion
 
+        #region AutoSelectCommand
+
+        public RelayCommand AutoSelectCommand { get; }
+
+        private bool AutoSelectCommand_CanExecute()
+        {
+            return true;
+        }
+
+        private void AutoSelectCommand_Execute()
+        {
+            foreach(var pokemon in this.Pokemons)
+            {
+                pokemon.MarkedForTransfer = false;
+                pokemon.MarkedForEvolution = false;
+            }
+
+            foreach (var family in Enum.GetValues(typeof(PokemonFamilyId)).Cast<PokemonFamilyId>())
+            {
+                var firstPokemonOfFamily = (PokemonId)family;
+                // if no evol, continue
+                if (!Pokemon.CandiesToEvolve.ContainsKey(firstPokemonOfFamily))
+                    continue;
+
+                var candiesCount = _families[(int)family].Candy_;
+                var pokemons = this.Pokemons
+                    .Where(x => x.Data.PokemonId == firstPokemonOfFamily)
+                    .OrderByDescending(x => x.CP)
+                    .ToArray();
+                candiesCount += pokemons.Length;
+                foreach (var pokemon in pokemons)
+                {
+                    if (candiesCount - 1 > pokemon.CandiesToUpgrade)
+                    {
+                        pokemon.MarkedForEvolution = true;
+                        candiesCount -= 1 + pokemon.CandiesToUpgrade;
+                    }
+                    else
+                    {
+                        pokemon.MarkedForTransfer = true;
+                    }
+                }
+                // never transfer first pokemon
+                if (pokemons.Length > 0)
+                    pokemons.First().MarkedForTransfer = false;
+            }
+        }
+
+        #endregion
+
         #region Loop
 
         private async Task Loop()
@@ -389,22 +440,12 @@ namespace PoGoBot
                     pokemonIds.Add(id);
                     if (_pokemons.ContainsKey(id))
                     {
-                        _pokemons[id].UpdateData(data.PokemonData);
+                        _pokemons[id].Data = data.PokemonData;
                     }
                     else
                     {
-                        // find family
-                        Candy family = null;
-                        var familyId = (int)data.PokemonData.PokemonId;
-                        while (family == null && familyId >= 0)
-                        {
-                            if (_families.ContainsKey(familyId))
-                                family = _families[familyId];
-                            else
-                                familyId--;
-                        }
-
                         // create pokemon
+                        var family = FindPokemonFamily(data);
                         var pokemon = new Pokemon(data.PokemonData, family);
                         _pokemons[id] = pokemon;
                         DispatcherHelper.CheckBeginInvokeOnUI(() => this.Pokemons.Add(pokemon));
@@ -474,7 +515,7 @@ namespace PoGoBot
 
                 if (pokestop.Data.Type == FortType.Checkpoint)
                 {
-                    if (DateTime.Now - pokestop.LastSpin < TimeSpan.FromMinutes(5))
+                    if (DateTime.Now - pokestop.LastSpin < TimeSpan.FromMinutes(1))
                         continue;
 
                     var details = await TryGet(() => _client.Fort.GetFort(data.Id, data.Latitude, data.Longitude));
@@ -713,6 +754,21 @@ namespace PoGoBot
                 return xpTable[level - 1];
             }
             return 0;
+        }
+
+        private Candy FindPokemonFamily(InventoryItemData data)
+        {
+            Candy family = null;
+            var familyId = (int)data.PokemonData.PokemonId;
+            while (family == null && familyId >= 0)
+            {
+                if (_families.ContainsKey(familyId))
+                    family = _families[familyId];
+                else
+                    familyId--;
+            }
+
+            return family;
         }
     }
 }
